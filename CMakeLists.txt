@@ -71,6 +71,7 @@ target_compile_definitions(${FW} PRIVATE
     BUTTONS=1
     MEGAROM=1
     FLOPPY=1
+    FLOPPY_WRITE=1
     FLOPPY_STAGES=7
     FLOPPY_DIAG=0
     FDC_SEEK_MIN_MS=0

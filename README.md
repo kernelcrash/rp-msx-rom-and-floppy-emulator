@@ -6,7 +6,7 @@ version of [msx-rom-and-floppy-emulator](https://github.com/kernelcrash/msx-rom-
 - **ROM cartridges** from the SD card: plain 16K/32K/64K ROMs, and Konami4, Konami5 (no SCC sound), ASCII8 and
   ASCII16 mapper ROMs up to 256K.
 - **Floppy disk images** (720K or 360K `.DSK`) as drive A, through an emulated WD2793 controller and a disk ROM.
-  Disks are read only.
+  Writes (SAVE, copying files in MSX-DOS) go back to the image on the SD card.
 - **kcmfs menu**: an MSX program that lists the SD card's `MSX` directory and lets you pick a ROM or disk.
 - **NEXT / PREV buttons** to step through the files (and through the disks of a multi-disk game).
 - **VGA output**: a copy of the MSX's video on a VGA monitor. The MSX's own VDP keeps working as normal; the
@@ -44,16 +44,35 @@ is up. GPIO 40-47 are not 5 V tolerant at all: only the 3.3 V VGA, SD card and b
 
 GPIO 0, 14 and 15 are not used. The board's LED is on GPIO 25 (A9), so it flickers while the MSX runs.
 
-MSX cartridge connector:
+MSX cartridge connector (as on the [MSX wiki](https://www.msx.org/wiki/MSX_Cartridge_slot)), with the RP2350B GPIO
+in brackets:
 
 ```
- 1 /CS1     2 /CS2     3 /CS12    4 /SLTSL   5 -        6 /RFSH    7 /WAIT    8 /INT
- 9 /M1     10 /BUSDIR 11 /IORQ   12 /MREQ   13 /WR     14 /RD     15 /RESET  16 -
-17 A9      18 A15     19 A11     20 A10     21 A7      22 A6      23 A12     24 A8
-25 A14     26 A13     27 A1      28 A0      29 A3      30 A2      31 A5      32 A4
-33 D1      34 D0      35 D3      36 D2      37 D5      38 D4      39 D7      40 D6
-41 GND     42 CLOCK   43 GND     44 SW1     45 +5V     46 SW2     47 +5V     48 +12V
-49 SOUNDIN 50 -12V
+       /CS2  2 |  1 /CS1
+ /SLTSL(10)  4 |  3 /CS12
+      /RFSH  6 |  5 -
+       /INT  8 |  7 /WAIT
+    /BUSDIR 10 |  9 /M1
+   /MREQ(9) 12 | 11 /IORQ(11)
+    /RD(13) 14 | 13 /WR(12)
+          - 16 | 15 /RESET
+    A15(31) 18 | 17 A9(25)
+    A10(26) 20 | 19 A11(27)
+     A6(22) 22 | 21 A7(23)
+     A8(24) 24 | 23 A12(28)
+    A13(29) 26 | 25 A14(30)
+     A0(16) 28 | 27 A1(17)
+     A2(18) 30 | 29 A3(19)
+     A4(20) 32 | 31 A5(21)
+      D0(1) 34 | 33 D1(2)
+      D2(3) 36 | 35 D3(4)
+      D4(5) 38 | 37 D5(6)
+      D6(7) 40 | 39 D7(8)
+      CLOCK 42 | 41 GND
+        SW1 44 | 43 GND
+        SW2 46 | 45 +5V
+       +12V 48 | 47 +5V
+       -12V 50 | 49 SOUNDIN
 ```
 
 ### VGA
@@ -138,6 +157,9 @@ picotool load -x build/rp_msx_rom_and_floppy_emulator.uf2
 2. The kcmfs menu appears. Pick a ROM, a disk or a directory; the MSX restarts into it.
 3. NEXT / PREV load the next or previous file in `MSX` (or the next or previous disk in a directory).
 4. To get back to the menu, power-cycle the RP2350B board.
+
+Changed sectors are written back to the card a moment after the MSX stops writing. Use a good quality SD
+card: a write the card rejects is not reported on the MSX.
 
 Disks need Disk BASIC to start, so a machine that boots into its own menu needs to get to BASIC first. On a
 Panasonic FS-A1 hold DEL while it starts up to skip its menu.
