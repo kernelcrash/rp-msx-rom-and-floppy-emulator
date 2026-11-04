@@ -1,0 +1,8 @@
+/* Place the emulated ROM image in its own region. NOLOAD: nothing is stored in the flash image. */
+SECTIONS
+{
+    .rom_image (NOLOAD) :
+    {
+        KEEP(*(.rom_image))
+    } > ROM_IMAGE
+}

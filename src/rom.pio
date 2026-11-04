@@ -1,0 +1,83 @@
+; ROM emulation for an 8 bit wide ROM, from RPROM (Rev3 layout), and the drive state machine for
+; the rest of any read cycle (ROM or VDP).
+;
+; Three state machines on PIO0 (the read half of the refactor-pio-sm.md plan: see bus_write.pio
+; for the write half):
+;
+;  generic_read        pushes an unconditional snapshot of every Z80 read cycle (memory or I/O) to
+;                       core 0, which classifies it (ROM read, VDP read, or irrelevant -- not
+;                       addressed to this cartridge at all) and answers in software; replaces
+;                       rom_address (which filtered on _CE in the PIO itself) and vdp_read_program
+;                       (vdp_bus.pio, which filtered on _RD after triggering on _IORQ)
+;  rom_data             outputs the data byte core 0 sends back onto D0-D7 (ROM reads and VDP reads)
+;  generic_read_drive   turns D0-D7 into outputs when core 0 says so, holds them a little after the
+;                       access ends; replaces rom_drive and vdp_read_drive, which never overlapped
+;                       (a memory cycle and an I/O cycle never happen together) -- gating on _RD,
+;                       the signal common to both kinds of read, instead of _OE or _IORQ separately
+;                       is what lets one program serve both
+;                       (the original RPROM rom_direction program, which decided from _OE/_CE alone,
+;                       is gone: the cartridge pinout has no _CE)
+;
+; All pins are inside the gpiobase=0 window, so pin numbers here are plain GPIO numbers.
+; Uses "mov pindirs", which only exists on RP2350 (PIO version 1).
+
+.pio_version 1
+
+.define public ROM_ADDRESS_BITS 16
+.define public ROM_IORQ_GPIO 11
+.define public ROM_RD_GPIO 13
+
+; GR_RISE_SETTLE: dead-time after the previous read ends before re-arming for the next one (mirrors
+; the old rom_address's identical ROM_CE_RISE_SETTLE). GR_SETTLE: extra cycles after _RD falls
+; before the snapshot. Core 0 drops another slot's read from the snapshot's _SLTSL alone, so _SLTSL
+; must have settled by then: on the Panasonic FS-A1 it falls about 80 ns after _MREQ (kernelcrash.com,
+; "The Panasonic FS-A1", logic analyser), and _RD falls with _MREQ on a memory read. 25 + 1 cycles at
+; 252 MHz is ~103 ns (it was 0 up to C35/C38, Omega only). Core 0's live-pin recheck before driving
+; anything is unchanged.
+.define GR_RISE_SETTLE 4
+.define GR_SETTLE 25
+
+; Prerequisites:
+;  * IN pins are mapped to GPIO 0 (GPIO n = bit n of the pushed word, matching the write-capture
+;    program's convention)
+;  * input shift left & autopush @ 32 bits, RX FIFO joined (8 deep)
+.program generic_read
+.wrap_target
+start:
+    wait 1 gpio ROM_RD_GPIO [GR_RISE_SETTLE]  ; previous read (if any) has ended; dead-time
+    wait 0 gpio ROM_RD_GPIO [GR_SETTLE]        ; this read has started: unconditional snapshot
+    in pins, 32                                 ; address/control/SLTSL/IORQ/MREQ; D0-D7 not valid yet
+.wrap
+
+
+; Prerequisites:
+;  * OUT pins are mapped to D0-D7 (GPIO 1-8)
+;  * output shift right & autopull @ 8 bits
+.program rom_data
+    out pins, 8
+
+; Core-mediated drive for the rest of ANY read cycle (ROM or VDP). This state machine decides
+; nothing from the pins beyond the final safety recheck. Core 0 does: it looks at the relevant
+; pins itself once they have settled (they are noisy, and _RD lags _OE/_IORQ by 10-20 ns), and only
+; for a read that is still in progress puts the byte in rom_data and then pushes one word here. So
+; D0-D7 are never driven in a write or a refresh cycle, and never with a stale byte. After the
+; access it keeps driving for CG_HOLD cycles (4 ns each at 252 MHz, about 68 ns): a real ROM's
+; outputs linger, and this machine needs it for ROM reads (with no hold a character is occasionally
+; wrong) -- applied uniformly to VDP reads too now that one program serves both, which should be
+; harmless (it happens strictly after _RD has already risen, i.e. after the Z80 has already sampled
+; the byte) but is a real behaviour change from the old vdp_read_drive (which held not at all) and
+; needs confirming on the rig.
+;
+; Prerequisites:
+;  * JMP pin is mapped to _RD
+;  * OUT pins are mapped to D0-D7 (only used as the target of mov pindirs)
+.program generic_read_drive
+.define public CG_HOLD 16
+.wrap_target
+start:
+    mov pindirs, null                      ; tri-state D0-D7
+    pull block                             ; core 0 has put the byte in rom_data and wants it driven
+    jmp pin, start                         ; _RD already high: the access is over, drive nothing
+    mov pindirs, ~null                     ; drive D0-D7
+    wait 1 gpio ROM_RD_GPIO [CG_HOLD]      ; until the read ends, then keep driving a little longer
+.wrap

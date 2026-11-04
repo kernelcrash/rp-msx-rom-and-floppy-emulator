@@ -1,0 +1,17 @@
+.DS_Store
+bin/
+*.bin
+*.cdb
+*.ihx
+*.lk
+*.lst
+*.map
+*.mem
+*.omf
+*.rst
+*.rel
+*.sym
+*.noi
+*.hex
+*.lnk
+*.dep

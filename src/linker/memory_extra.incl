@@ -1,0 +1,6 @@
+/* Carve the cartridge buffer out of the start of SRAM. The rest of SRAM is the normal RAM region:
+   the CMake file moves RAM_ORIGIN/RAM_LENGTH past it (RAM_ORIGIN = 0x20000000 + 256K). */
+MEMORY
+{
+    ROM_IMAGE(rwx) : ORIGIN = 0x20000000, LENGTH = 256K
+}

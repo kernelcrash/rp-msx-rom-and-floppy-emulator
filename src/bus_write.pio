@@ -1,0 +1,44 @@
+; Captures every Z80 write cycle, memory or I/O, unconditionally -- the write half of
+; refactor-pio-sm.md's plan. Replaces vdp_bus.pio's vdp_bus_program (I/O writes only) and the
+; menu_write/fdc_write/mapper_write swappable-slot mechanism (each filtering its own address
+; window in the PIO itself) with one always-resident program: core 0 classifies every write in
+; software now (main.c's write_classify_early()/the late dispatch), including the great majority
+; that belong to none of this cartridge's windows at all -- previously filtered out before ever
+; reaching core 0.
+;
+; Two snapshots per write, both timed from _WR falling (cycles at 252 MHz, ~4 ns each):
+;  * EARLY at ~32 cycles (~127 ns): what core 0 classifies the write from (_IORQ low = I/O) and the
+;    mapper decodes its address from. It has to wait that long: on this rig, a few ns after _WR
+;    falls on an OUT, _IORQ is not low yet and the _MREQ pin still reads low from the previous
+;    memory cycle, so an immediate sample makes every I/O write look like a memory write (seen on
+;    the rig: the VDP was never programmed). ~127 ns is vdp_bus.pio's own proven _IORQ settle.
+;  * LATE, once data is valid: ~52 cycles (~206 ns) for a memory write, whose data is only reliable
+;    late in its ~280 ns _WR pulse (fdc_write.pio's proven sample point, and it must stay inside the
+;    pulse -- every decoder rechecks _WR low on this snapshot); ~67 cycles (~266 ns) for an I/O
+;    write, whose data is valid for the whole of its longer pulse.
+;
+; Prerequisites:
+;  * JMP pin is mapped to _IORQ
+;  * IN pins are mapped to GPIO 0 (GPIO n = bit n of each pushed word)
+;  * input shift left & autopush @ 32 bits, RX FIFO joined (8 deep)
+
+.define public GW_WR_GPIO 12
+.define public GW_IORQ_GPIO 11
+.define GW_EARLY_SETTLE 31  ; EARLY sample at ~32 cycles after _WR falls
+.define GW_IO_SETTLE 31     ; I/O:    LATE at ~32 + 2 + 32 + 1 = ~67 cycles
+.define GW_MEM_SETTLE 17    ; memory: LATE at ~32 + 2 + 18     = ~52 cycles (~206 ns)
+
+.program generic_write
+.wrap_target
+start:
+    wait 1 gpio GW_WR_GPIO [4]                ; a previous write strobe, if any, has ended; dead-time
+    wait 0 gpio GW_WR_GPIO [GW_EARLY_SETTLE]  ; a write strobe has started; let _MREQ/_IORQ settle
+    in pins, 32                    ; EARLY snapshot (autopush): address/control, data not yet valid
+    jmp pin, mem_write             ; _IORQ high: a memory write
+    nop [GW_IO_SETTLE]             ; I/O write
+    jmp capture
+mem_write:
+    nop [GW_MEM_SETTLE]            ; memory write: just enough to land late in, but inside, the pulse
+capture:
+    in pins, 32                    ; LATE snapshot (autopush): data valid now
+.wrap
