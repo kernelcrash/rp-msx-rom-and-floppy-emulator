@@ -1,22 +1,27 @@
 # rp-msx-rom-and-floppy-emulator
 
-An MSX cartridge built around an RP2350B (WeAct Studio RP2350B core board) and an SD card. It is the RP2350
+Yet another AI experiment, or excessive 'clauding'.
+
+An MSX cartridge built around an RP2350B (WeAct Studio RP2350B core board) and an SD card. It is the RP2350B
 version of [msx-rom-and-floppy-emulator](https://github.com/kernelcrash/msx-rom-and-floppy-emulator).
 
 - **ROM cartridges** from the SD card: plain 16K/32K/64K ROMs, and Konami4, Konami5 (no SCC sound), ASCII8 and
-  ASCII16 mapper ROMs up to 256K.
+  ASCII16 mapper ROMs up to 256K. Generally you have to rename cartridge dumps to include the type as a suffix. 
+  eg. usas.konami4. 
 - **Floppy disk images** (720K or 360K `.DSK`) as drive A, through an emulated WD2793 controller and a disk ROM.
   Writes (SAVE, copying files in MSX-DOS) go back to the image on the SD card.
-- **kcmfs menu**: an MSX program that lists the SD card's `MSX` directory and lets you pick a ROM or disk.
+- **kcmfs menu**: an MSX program that lists the SD card's `MSX` directory and lets you pick a ROM or disk. This is 
+  the same as the version in msx-rom-and-floppy-emulator
 - **NEXT / PREV buttons** to step through the files (and through the disks of a multi-disk game).
 - **VGA output**: a copy of the MSX's video on a VGA monitor. The MSX's own VDP keeps working as normal; the
-  RP2350 only listens to what is written to it, so some screens may not look right on the VGA output.
+  RP2350B only listens to what is written to it, so some screens may not look right on the VGA output. It tries to
+  emulate the V9938 so 9918 and V9938 stuff should work, though there are limitations for the V9938 emulation
 
 Tested on an Omega MSX2 and a Panasonic FS-A1.
 
 ## Parts
 
-- WeAct Studio RP2350B core board
+- WeAct Studio RP2350B core board. Make sure to get an A4 stepping or later board.
 - Something to plug into the MSX cartridge slot (a cartridge PCB or edge connector)
 - SD card socket (3.3 V, SPI)
 - VGA connector and 11 resistors (see below)
@@ -25,9 +30,6 @@ Tested on an Omega MSX2 and a Panasonic FS-A1.
 ## Wiring
 
 All signals connect directly, with no level shifters.
-
-**Power the RP2350B before the MSX is switched on.** Its GPIO 0-39 tolerate 5 V only while the board's 3.3 V
-is up. GPIO 40-47 are not 5 V tolerant at all: only the 3.3 V VGA, SD card and button signals go there.
 
 ### Cartridge slot
 
@@ -162,7 +164,8 @@ Changed sectors are written back to the card a moment after the MSX stops writin
 card: a write the card rejects is not reported on the MSX.
 
 Disks need Disk BASIC to start, so a machine that boots into its own menu needs to get to BASIC first. On a
-Panasonic FS-A1 hold DEL while it starts up to skip its menu.
+Panasonic FS-A1 hold DEL while it starts up to skip its menu. ie. when you pick something in kcmfs, and you 
+see the system rebooting, hold down the DEL key for a few seconds then release it.
 
 kcmfs can be rebuilt from `kcmfs/` (see `kcmfs/README-kcmfs.md`).
 
