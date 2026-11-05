@@ -116,7 +116,7 @@ FAT16 or FAT32.
 
 ```
 MENU.ROM          kcmfs (kcmfs/menu.rom from this project)
-DISK.ROM          a 16K MSX disk ROM (tested with the Philips NMS 8250's)
+DISK.ROM          a 16K MSX disk ROM (tested with the Philips NMS 8250's with MD5 0ed6dbd654da55b56dfb331dd3df82f0)
 MSX/              the ROMs and disks the menu lists
 MSX/game.rom
 MSX/game.konami4  a mapper can be named by the extension: .konami4 .konami5 .ascii8 .ascii16
