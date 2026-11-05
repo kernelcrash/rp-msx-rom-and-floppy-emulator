@@ -1,6 +1,6 @@
 # rp-msx-rom-and-floppy-emulator
 
-Yet another AI experiment, or excessive 'clauding'.
+Yet another AI experiment, or excessive 'clauding'. There's a write up on my blog ; https://www.kernelcrash.com/blog/rp2350b-based-msx-rom-floppy-and-vga-emulator/
 
 An MSX cartridge built around an RP2350B (WeAct Studio RP2350B core board) and an SD card. It is the RP2350B
 version of [msx-rom-and-floppy-emulator](https://github.com/kernelcrash/msx-rom-and-floppy-emulator).
